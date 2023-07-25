@@ -200,7 +200,13 @@ If you would like to specify a specific queue that should be used for each notif
 
 When queued notifications are dispatched within database transactions, they may be processed by the queue before the database transaction has committed. When this happens, any updates you have made to models or database records during the database transaction may not yet be reflected in the database. In addition, any models or database records created within the transaction may not exist in the database. If your notification depends on these models, unexpected errors can occur when the job that sends the queued notification is processed.
 
-If your queue connection's `after_commit` configuration option is set to `false`, you may still indicate that a particular queued notification should be dispatched after all open database transactions have been committed by defining an `$afterCommit` property on the notification class:
+If your queue connection's `after_commit` configuration option is set to `false`, you may still indicate that a particular queued notification should be dispatched after all open database transactions have been committed by calling the `afterCommit` method when sending the notification:
+
+    use App\Notifications\InvoicePaid;
+
+    $user->notify((new InvoicePaid($invoice))->afterCommit());
+
+Alternatively, you may call the `afterCommit` method from your notification's constructor:
 
     <?php
 
@@ -214,7 +220,15 @@ If your queue connection's `after_commit` configuration option is set to `false`
     {
         use Queueable;
 
-        public $afterCommit = true;
+        /**
+         * Create a new notification instance.
+         *
+         * @return void
+         */
+        public function __construct()
+        {
+            $this->afterCommit();
+        }
     }
 
 > {tip} To learn more about working around these issues, please review the documentation regarding [queued jobs and database transactions](/docs/{{version}}/queues#jobs-and-database-transactions).
@@ -248,7 +262,7 @@ Sometimes you may need to send a notification to someone who is not stored as a 
                 ->route('slack', 'https://hooks.slack.com/services/...')
                 ->notify(new InvoicePaid($invoice));
 
-If you would like to provide the receipient's name when sending an on-demand notification to the `mail` route, you may provide an array that contains the email address as the key and the name as the value of the first element in the array:
+If you would like to provide the recipient's name when sending an on-demand notification to the `mail` route, you may provide an array that contains the email address as the key and the name as the value of the first element in the array:
 
     Notification::route('mail', [
         'barrett@example.com' => 'Barrett Blair',
@@ -817,7 +831,7 @@ In addition to the data you specify, all broadcast notifications also have a `ty
 <a name="listening-for-notifications"></a>
 ### Listening For Notifications
 
-Notifications will broadcast on a private channel formatted using a `{notifiable}.{id}` convention. So, if you are sending a notification to an `App\Models\User` instance with an ID of `1`, the notification will be broadcast on the `App.Models.User.1` private channel. When using [Laravel Echo](/docs/{{version}}/broadcasting), you may easily listen for notifications on a channel using the `notification` method:
+Notifications will broadcast on a private channel formatted using a `{notifiable}.{id}` convention. So, if you are sending a notification to an `App\Models\User` instance with an ID of `1`, the notification will be broadcast on the `App.Models.User.1` private channel. When using [Laravel Echo](/docs/{{version}}/broadcasting#client-side-installation), you may easily listen for notifications on a channel using the `notification` method:
 
     Echo.private('App.Models.User.' + userId)
         .notification((notification) => {
@@ -1004,7 +1018,7 @@ Before you can send notifications via Slack, you must install the Slack notifica
 
     composer require laravel/slack-notification-channel
 
-You will also need to configure an ["Incoming Webhook"](https://slack.com/apps/A0F7XDUAZ-incoming-webhooks) integration for your Slack team. This integration will provide you with a URL you may use when [routing Slack notifications](#routing-slack-notifications).
+You will also need to create a [Slack App](https://api.slack.com/apps?new_app=1) for your team. After creating the App, you should configure an "Incoming Webhook" for the workspace. Slack will then provide you with a webhook URL that you may use when [routing Slack notifications](#routing-slack-notifications).
 
 <a name="formatting-slack-notifications"></a>
 ### Formatting Slack Notifications
@@ -1021,41 +1035,6 @@ If a notification supports being sent as a Slack message, you should define a `t
     {
         return (new SlackMessage)
                     ->content('One of your invoices has been paid!');
-    }
-
-<a name="customizing-the-sender-recipient"></a>
-#### Customizing The Sender & Recipient
-
-You may use the `from` and `to` methods to customize the sender and recipient. The `from` method accepts a username and emoji identifier, while the `to` method accepts a channel or username:
-
-    /**
-     * Get the Slack representation of the notification.
-     *
-     * @param  mixed  $notifiable
-     * @return \Illuminate\Notifications\Messages\SlackMessage
-     */
-    public function toSlack($notifiable)
-    {
-        return (new SlackMessage)
-                    ->from('Ghost', ':ghost:')
-                    ->to('#bots')
-                    ->content('This will be sent to #bots');
-    }
-
-You may also use an image as your from "logo" instead of an emoji:
-
-    /**
-     * Get the Slack representation of the notification.
-     *
-     * @param  mixed  $notifiable
-     * @return \Illuminate\Notifications\Messages\SlackMessage
-     */
-    public function toSlack($notifiable)
-    {
-        return (new SlackMessage)
-                    ->from('Laravel')
-                    ->image('https://laravel.com/img/favicon/favicon.ico')
-                    ->content('This will display the Laravel logo next to the message');
     }
 
 <a name="slack-attachments"></a>
@@ -1292,7 +1271,7 @@ Within the `send` method, you may call methods on the notification to retrieve a
 
     <?php
 
-    namespace App\Channels;
+    namespace App\Notifications;
 
     use Illuminate\Notifications\Notification;
 
@@ -1319,8 +1298,8 @@ Once your notification channel class has been defined, you may return the class 
 
     namespace App\Notifications;
 
-    use App\Channels\Messages\VoiceMessage;
-    use App\Channels\VoiceChannel;
+    use App\Notifications\Messages\VoiceMessage;
+    use App\Notifications\VoiceChannel;
     use Illuminate\Bus\Queueable;
     use Illuminate\Contracts\Queue\ShouldQueue;
     use Illuminate\Notifications\Notification;

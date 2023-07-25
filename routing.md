@@ -10,6 +10,7 @@
 - [Named Routes](#named-routes)
 - [Route Groups](#route-groups)
     - [Middleware](#route-group-middleware)
+    - [Controllers](#route-group-controllers)
     - [Subdomain Routing](#route-group-subdomain-routing)
     - [Route Prefixes](#route-group-prefixes)
     - [Route Name Prefixes](#route-group-name-prefixes)
@@ -323,6 +324,18 @@ To assign [middleware](/docs/{{version}}/middleware) to all routes within a grou
         });
     });
 
+<a name="route-group-controllers"></a>
+### Controllers
+
+If a group of routes all utilize the same [controller](/docs/{{version}}/controllers), you may use the `controller` method to define the common controller for all of the routes within the group. Then, when defining the routes, you only need to provide the controller method that they invoke:
+
+    use App\Http\Controllers\OrderController;
+
+    Route::controller(OrderController::class)->group(function () {
+        Route::get('/orders/{id}', 'show');
+        Route::post('/orders', 'store');
+    });
+
 <a name="route-group-subdomain-routing"></a>
 ### Subdomain Routing
 
@@ -401,7 +414,6 @@ Typically, implicit model binding will not retrieve models that have been [soft 
         return $user->email;
     })->withTrashed();
 
-<a name="customizing-the-key"></a>
 <a name="customizing-the-default-key-name"></a>
 #### Customizing The Key
 
